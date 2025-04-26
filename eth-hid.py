@@ -7,14 +7,17 @@ import time
 parser = argparse.ArgumentParser()
 parser.add_argument(
         "mode",
+        nargs="?",
         help="The first argument selects the mode, advertise or interact"
 )
 parser.add_argument(
         "media_type",
+        nargs="?",
         help="The second argument selects the media type, text only right now"
 )
 parser.add_argument(
         "direction",
+        nargs="?",
         help="The third argument selects the direction, source or sink"
 )
 args = parser.parse_args()
@@ -90,18 +93,21 @@ configuration = {
 }
 
 
-if args.mode not in configuration:
-    print("invalid mode: %s" % args.mode)
+if not args.mode or args.mode not in configuration:
+    if args.mode:
+        print("invalid mode: %s" % args.mode)
     print("available modes:", ", ".join(configuration.keys()))
     exit(1)
 
-if args.media_type not in configuration[args.mode]:
-    print("invalid media_type: %s" % args.media_type)
+if not args.media_type or args.media_type not in configuration[args.mode]:
+    if args.media_type:
+        print("invalid media_type: %s" % args.media_type)
     print("available modes:", ", ".join(configuration[args.mode].keys()))
     exit(1)
 
 if args.direction not in configuration[args.mode][args.media_type]:
-    print("invalid direction: %s" % args.direction)
+    if args.direction:
+        print("invalid direction: %s" % args.direction)
     keys = configuration[args.mode][args.media_type].keys()
     print("available modes:", ", ".join(keys))
     exit(1)
