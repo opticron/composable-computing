@@ -3,29 +3,20 @@
 import argparse
 import socket
 import time
+from pprint import pprint
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-        "mode",
-        nargs="?",
-        help="The first argument selects the mode, advertise or interact"
-)
-parser.add_argument(
-        "media_type",
-        nargs="?",
-        help="The second argument selects the media type, text only right now"
-)
-parser.add_argument(
-        "direction",
-        nargs="?",
-        help="The third argument selects the direction, source or sink"
+        "config_keys",
+        nargs="*",
+        help="Each positional argument traverses into the config tree"
 )
 args = parser.parse_args()
 
 
-def server_sink_and_show_text(mode, media_type, direction, details):
+def server_sink_and_show_text(full_config, config_keys, context):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("0.0.0.0", details["port"]))
+    sock.bind(("0.0.0.0", context["port"]))
     sock.listen(1)
     while True:
         client, addr = sock.accept()
@@ -35,9 +26,9 @@ def server_sink_and_show_text(mode, media_type, direction, details):
             print(data)
 
 
-def server_source_garbage_text(mode, media_type, direction, details):
+def server_source_garbage_text(full_config, config_keys, context):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("0.0.0.0", details["port"]))
+    sock.bind(("0.0.0.0", context["port"]))
     sock.listen(1)
     while True:
         client, addr = sock.accept()
@@ -47,21 +38,29 @@ def server_source_garbage_text(mode, media_type, direction, details):
             time.sleep(1)
 
 
-def client_show_text(mode, media_type, direction, details):
+def client_show_text(full_config, config_keys, context):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(("localhost", details["port"]))
+    sock.connect(("localhost", context["port"]))
     while True:
         print(sock.recv(512).decode("utf-8"))
 
 
-def client_transmit_input(mode, media_type, direction, details):
+def client_transmit_input(full_config, config_keys, context):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(("localhost", details["port"]))
+    sock.connect(("localhost", context["port"]))
     while True:
         sock.send(input("").encode("utf-8"))
 
 
+def print_config(full_config, config_keys, context):
+    print("Configuration:")
+    pprint(full_config)
+
+
 configuration = {
+    "show_config": {
+        "activate": print_config
+    },
     "advertise": {
         "text": {
             "source": {
@@ -93,25 +92,19 @@ configuration = {
 }
 
 
-if not args.mode or args.mode not in configuration:
-    if args.mode:
-        print("invalid mode: %s" % args.mode)
-    print("available modes:", ", ".join(configuration.keys()))
+context = configuration
+for config_key in args.config_keys:
+    if config_key not in context:
+        print("invalid key: %s" % config_key)
+        print("available keys at this level:", ", ".join(context.keys()))
+        exit(1)
+    context = context[config_key]
+
+# now at the end of the specified key traversal
+if "activate" not in context:
+    print("incomplete configuration traversal: %s" % args.config_keys)
+    print("available keys at this level:", ", ".join(context.keys()))
     exit(1)
 
-if not args.media_type or args.media_type not in configuration[args.mode]:
-    if args.media_type:
-        print("invalid media_type: %s" % args.media_type)
-    print("available modes:", ", ".join(configuration[args.mode].keys()))
-    exit(1)
-
-if args.direction not in configuration[args.mode][args.media_type]:
-    if args.direction:
-        print("invalid direction: %s" % args.direction)
-    keys = configuration[args.mode][args.media_type].keys()
-    print("available modes:", ", ".join(keys))
-    exit(1)
-
-handler = configuration[args.mode][args.media_type][args.direction]["activate"]
-context = configuration[args.mode][args.media_type][args.direction]
-handler(args.mode, args.media_type, args.direction, context)
+handler = context["activate"]
+handler(configuration, args.config_keys, context)
