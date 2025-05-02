@@ -5,14 +5,6 @@ import socket
 import time
 from pprint import pprint
 
-parser = argparse.ArgumentParser()
-parser.add_argument(
-        "config_keys",
-        nargs="*",
-        help="Each positional argument traverses into the config tree"
-)
-args = parser.parse_args()
-
 
 def server_sink_and_show_text(full_config, config_keys, context):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -92,19 +84,32 @@ configuration = {
 }
 
 
-context = configuration
-for config_key in args.config_keys:
-    if config_key not in context:
-        print("invalid key: %s" % config_key)
+def traverse_config(keys):
+    context = configuration
+    for config_key in keys:
+        if config_key not in context:
+            print("invalid key: %s" % config_key)
+            print("available keys at this level:", ", ".join(context.keys()))
+            exit(1)
+        context = context[config_key]
+
+    # now at the end of the specified key traversal
+    if "activate" not in context:
+        print("incomplete configuration traversal: %s" % keys)
         print("available keys at this level:", ", ".join(context.keys()))
         exit(1)
-    context = context[config_key]
 
-# now at the end of the specified key traversal
-if "activate" not in context:
-    print("incomplete configuration traversal: %s" % args.config_keys)
-    print("available keys at this level:", ", ".join(context.keys()))
-    exit(1)
+    handler = context["activate"]
+    handler(configuration, keys, context)
 
-handler = context["activate"]
-handler(configuration, args.config_keys, context)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+            "config_keys",
+            nargs="*",
+            help="Each positional argument traverses into the config tree"
+    )
+    args = parser.parse_args()
+
+    traverse_config(args.config_keys)
